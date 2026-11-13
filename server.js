@@ -232,7 +232,8 @@ app.post('/api/tap', requireTelegram, async (req, res) => {
   }
 });
 
-// Покупка улучшений
+
+ // Покупка улучшений
 app.post('/api/upgrade', requireTelegram, async (req, res) => {
   const type = Number(req.body.type);
 
@@ -254,50 +255,52 @@ app.post('/api/upgrade', requireTelegram, async (req, res) => {
     );
 
     const p = q.rows[0];
-    const costField = `cost${type}`;
-    const cost = Number(p[costField]);
+    const cost = Number(p[`cost${type}`]);
 
     if (Number(p.coins) < cost) {
       await client.query('ROLLBACK');
-
       return res.status(400).json({
         error: 'Недостаточно монет.'
       });
     }
 
-    let update;
+    let sql;
+    let nextCost;
 
     if (type === 1) {
-      update = [
-        'click_power=click_power+1, level1=level1+1, cost1=$1',
-        Math.floor(cost * 1.45)
-      ];
+      sql = `UPDATE players
+        SET coins=coins-$1,
+            click_power=click_power+1,
+            level1=level1+1,
+            cost1=$2,
+            updated_at=NOW()
+        WHERE telegram_id=$3`;
+      nextCost = Math.floor(cost * 1.45);
+    } else if (type === 2) {
+      sql = `UPDATE players
+        SET coins=coins-$1,
+            auto_click=auto_click+1,
+            level2=level2+1,
+            cost2=$2,
+            updated_at=NOW()
+        WHERE telegram_id=$3`;
+      nextCost = Math.floor(cost * 1.6);
+    } else {
+      sql = `UPDATE players
+        SET coins=coins-$1,
+            multiplier=multiplier*2,
+            level3=level3+1,
+            cost3=$2,
+            updated_at=NOW()
+        WHERE telegram_id=$3`;
+      nextCost = Math.floor(cost * 2.2);
     }
 
-    if (type === 2) {
-      update = [
-        'auto_click=auto_click+1, level2=level2+1, cost2=$1',
-        Math.floor(cost * 1.6)
-      ];
-    }
-
-    if (type === 3) {
-      update = [
-        'multiplier=multiplier*2, level3=level3+1, cost3=$1',
-        Math.floor(cost * 2.2)
-      ];
-    }
-
-    await client.query(
-      `UPDATE players
-       SET coins=coins-$1, ${update[0]}, updated_at=NOW()
-       WHERE telegram_id=$2`,
-      [
-        cost,
-        update[1],
-        String(req.telegramUser.id)
-      ]
-    );
+    await client.query(sql, [
+      cost,
+      nextCost,
+      String(req.telegramUser.id)
+    ]);
 
     const fresh = await client.query(
       'SELECT * FROM players WHERE telegram_id=$1',
