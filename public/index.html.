@@ -1,1 +1,272 @@
 
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>FollyTap</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none}
+body{font-family:system-ui,-apple-system,sans-serif;min-height:100vh;color:#fff;background:radial-gradient(ellipse at 50% 0%,#44228a 0%,#21104e 42%,#0b0920 100%);padding:22px 16px 35px;display:flex;align-items:center;flex-direction:column;overflow-x:hidden}
+.wrap{width:100%;max-width:440px}
+.balance{border:1px solid #8064d7;background:linear-gradient(135deg,#38246f,#211747);border-radius:23px;padding:20px;text-align:center;box-shadow:0 12px 35px #08051c88}
+.small{font-size:12px;letter-spacing:2px;color:#c3b5f7}
+.coins{font-size:42px;font-weight:900;color:#ffd66b;margin:7px 0;text-shadow:0 0 18px #ffc94b55}
+.rate{font-size:13px;color:#b8aaff}
+.tap{position:relative;margin:34px auto 38px;width:218px;height:218px;border-radius:50%;border:5px solid #ffffff38;background:linear-gradient(145deg,#65a0ff,#385be8 55%,#6739d8);box-shadow:0 0 0 10px #ffffff08,0 0 45px #477cff88,inset 0 0 24px #ffffff30;display:grid;place-items:center;font-size:72px;touch-action:manipulation;cursor:pointer;transition:transform .08s}
+.tap:active{transform:scale(.93)}
+.cards{display:grid;gap:12px}
+.card{background:linear-gradient(135deg,#2c2057,#191333);border:1px solid #514184;border-radius:17px;padding:15px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.info h3{font-size:15px}
+.info p,.level{font-size:12px;color:#b6acd9;margin-top:4px}
+.buy,.action{border:0;border-radius:12px;padding:11px 14px;color:white;font-weight:800;background:linear-gradient(135deg,#4e9cff,#3458e8);white-space:nowrap}
+.buy:disabled{background:#45405d;color:#999}
+.panel{margin-top:15px;padding:16px;border-radius:17px;background:#211944;border:1px solid #514184}
+.panel h3{margin-bottom:10px}
+.promo-row{display:flex;gap:8px}
+.promo-row input,.admin input{min-width:0;flex:1;background:#100d27;border:1px solid #5b4b8e;border-radius:10px;padding:12px;color:white;font-size:14px}
+.message{font-size:12px;color:#c7baff;margin-top:9px;min-height:16px}
+.float{position:absolute;pointer-events:none;font-size:19px;font-weight:900;color:#ffe17b;text-shadow:0 2px 8px #ffb000;animation:rise .85s ease-out forwards;z-index:4}
+.coinbit{position:fixed;pointer-events:none;font-size:24px;z-index:10;animation:burst .85s ease-out forwards}
+@keyframes rise{0%{opacity:0;transform:translateY(8px) scale(.7)}20%{opacity:1}100%{opacity:0;transform:translateY(-75px) scale(1.2)}}
+@keyframes burst{0%{opacity:0;transform:translate(0,0) scale(.4) rotate(0)}15%{opacity:1}100%{opacity:0;transform:translate(var(--x),var(--y)) scale(1.1) rotate(220deg)}}
+button{cursor:pointer}
+.admin{display:none}
+.admin-grid{display:grid;gap:8px}
+.admin button{width:100%}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="balance">
+    <div class="small">✦ ТВОЙ БАЛАНС ✦</div>
+    <div class="coins" id="coins">… 🪙</div>
+    <div class="rate" id="rate">Загрузка профиля…</div>
+  </section>
+
+  <button class="tap" id="tap" aria-label="Кликнуть">⭐</button>
+
+  <section class="cards">
+    <article class="card">
+      <div class="info">
+        <h3>⚡ Сила клика</h3>
+        <p>+1 монета за клик</p>
+        <div class="level" id="l1">Уровень: 1</div>
+      </div>
+      <button class="buy" id="b1">50 🪙</button>
+    </article>
+
+    <article class="card">
+      <div class="info">
+        <h3>🤖 Автоклик</h3>
+        <p>+1 монета в секунду</p>
+        <div class="level" id="l2">Уровень: 0</div>
+      </div>
+      <button class="buy" id="b2">200 🪙</button>
+    </article>
+
+    <article class="card">
+      <div class="info">
+        <h3>🚀 Множитель</h3>
+        <p>x2 ко всем доходам</p>
+        <div class="level" id="l3">Уровень: 0</div>
+      </div>
+      <button class="buy" id="b3">1000 🪙</button>
+    </article>
+  </section>
+
+  <section class="panel">
+    <h3>🎁 Промокод</h3>
+    <div class="promo-row">
+      <input id="promo" maxlength="32" placeholder="Введи промокод" autocomplete="off">
+      <button class="action" id="redeem">ОК</button>
+    </div>
+    <div class="message" id="promoMsg"></div>
+  </section>
+
+  <section class="panel admin" id="admin">
+    <h3>🛠 Панель администратора</h3>
+    <div class="admin-grid">
+      <input id="newCode" placeholder="Промокод, например FOLLY500">
+      <input id="reward" type="number" min="1" placeholder="Награда в монетах">
+      <input id="maxUses" type="number" min="1" placeholder="Лимит активаций">
+      <input id="expiry" type="date">
+      <button class="action" id="createPromo">Создать промокод</button>
+      <div class="message" id="adminMsg"></div>
+      <div id="promoList" class="message"></div>
+    </div>
+  </section>
+
+  <div class="message" id="status"></div>
+</div>
+
+<script>
+const tg=window.Telegram?.WebApp;
+if(tg){
+  tg.ready();
+  tg.expand();
+  tg.setHeaderColor?.('#21104e');
+  tg.setBackgroundColor?.('#0b0920');
+}
+
+const initData=tg?.initData||'';
+let state=null,busy=false;
+const $=id=>document.getElementById(id);
+
+async function api(path,body){
+  const r=await fetch(path,{
+    method:body?'POST':'GET',
+    headers:{
+      'Content-Type':'application/json',
+      'X-Telegram-Init-Data':initData
+    },
+    body:body?JSON.stringify(body):undefined
+  });
+  const data=await r.json().catch(()=>({error:'Ошибка сервера'}));
+  if(!r.ok)throw new Error(data.error||'Ошибка запроса');
+  return data;
+}
+
+function render(p){
+  state=p;
+  $('coins').textContent=Number(p.coins).toLocaleString('ru-RU')+' 🪙';
+  $('rate').textContent=`+${p.clickPower*p.multiplier} за клик${p.autoClick?' · +'+p.autoClick*p.multiplier+'/сек':''}`;
+  $('l1').textContent='Уровень: '+p.level1;
+  $('l2').textContent='Уровень: '+p.level2;
+  $('l3').textContent='Уровень: '+p.level3;
+
+  [1,2,3].forEach(i=>{
+    $('b'+i).textContent=Number(p['cost'+i]).toLocaleString('ru-RU')+' 🪙';
+    $('b'+i).disabled=p.coins<p['cost'+i];
+  });
+}
+
+function burst(x,y){
+  for(let i=0;i<7;i++){
+    const el=document.createElement('span');
+    el.className='coinbit';
+    el.textContent='🪙';
+    el.style.left=x+'px';
+    el.style.top=y+'px';
+
+    const angle=(Math.PI*2*i/7)+(Math.random()*.3);
+    const distance=65+Math.random()*55;
+
+    el.style.setProperty('--x',Math.cos(angle)*distance+'px');
+    el.style.setProperty('--y',Math.sin(angle)*distance+'px');
+
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(),900);
+  }
+
+  const plus=document.createElement('span');
+  plus.className='float';
+  plus.textContent='+'+(state?state.clickPower*state.multiplier:1)+' ⭐';
+  plus.style.left=(x-18)+'px';
+  plus.style.top=(y-20)+'px';
+  document.body.appendChild(plus);
+  setTimeout(()=>plus.remove(),900);
+}
+
+async function load(){
+  if(!initData){
+    $('status').textContent='Открой игру через кнопку в Telegram, а не через обычный браузер.';
+    return;
+  }
+
+  try{
+    const d=await api('/api/state');
+    render(d.player);
+
+    const who=await api('/api/admin/whoami');
+    if(who.isAdmin){
+      $('admin').style.display='block';
+      loadPromos();
+    }
+  }catch(e){
+    $('status').textContent=e.message;
+  }
+}
+
+$('tap').addEventListener('click',async e=>{
+  if(busy||!state)return;
+  busy=true;
+
+  const r=$('tap').getBoundingClientRect();
+  burst(e.clientX||r.left+r.width/2,e.clientY||r.top+r.height/2);
+
+  try{
+    const d=await api('/api/tap',{});
+    state.coins=d.coins;
+    render(state);
+  }catch(err){
+    $('status').textContent=err.message;
+  }finally{
+    busy=false;
+  }
+});
+
+[1,2,3].forEach(i=>{
+  $('b'+i).addEventListener('click',async()=>{
+    try{
+      const d=await api('/api/upgrade',{type:i});
+      render(d.player);
+    }catch(e){
+      $('status').textContent=e.message;
+    }
+  });
+});
+
+$('redeem').addEventListener('click',async()=>{
+  $('promoMsg').textContent='';
+  try{
+    const d=await api('/api/promo/redeem',{code:$('promo').value});
+    render(d.player);
+    $('promoMsg').textContent=d.message;
+    $('promo').value='';
+  }catch(e){
+    $('promoMsg').textContent=e.message;
+  }
+});
+
+async function loadPromos(){
+  try{
+    const d=await api('/api/admin/promos');
+    $('promoList').textContent=d.promos.map(p=>
+      `${p.code} — ${p.reward} 🪙 — ${p.uses}/${p.max_uses} — ${p.active?'активен':'выключен'}`
+    ).join('\n')||'Промокодов пока нет';
+  }catch(e){
+    $('adminMsg').textContent=e.message;
+  }
+}
+
+$('createPromo').addEventListener('click',async()=>{
+  try{
+    const d=await api('/api/admin/promo',{
+      code:$('newCode').value,
+      reward:$('reward').value,
+      maxUses:$('maxUses').value,
+      expiresAt:$('expiry').value||null
+    });
+    $('adminMsg').textContent=d.message;
+    loadPromos();
+  }catch(e){
+    $('adminMsg').textContent=e.message;
+  }
+});
+
+load();
+
+setInterval(async()=>{
+  if(!state||!initData||document.hidden||busy)return;
+  try{
+    const d=await api('/api/auto-tick',{});
+    render(d.player);
+  }catch(e){
+    // Повторная попытка при следующем обновлении
+  }
+},5000);
+</script>
+</body>
+</html>
